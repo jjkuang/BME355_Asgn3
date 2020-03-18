@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
 
@@ -55,39 +56,45 @@ class Circulation:
         """
 
         xdot = []
-        filling_phase = False
-        ejection_phase = False
-        isovolumic_phase = False
+        # print(x[0])
+        # print(x[1])
 
         if x[1] > x[0]:
-            filling_phase = True
-        elif x[4] > 0 or x[1] > x[3]:
-            ejection_phase = True
+            xdot = self.filling_phase_dynamic_matrix(t)*x
+        elif x[3] > 0 or x[0] > x[2]:
+            xdot = self.ejection_phase_dynamic_matrix(t)*x
         else:
-            isovolumic_phase = True
+            xdot = self.isovolumic_phase_dynamic_matrix(t)*x
 
-        el = self.elastance(t)
-        del_dt = self.elastance_finite_difference(t)
-        if filling_phase:
+        # el = self.elastance(t)
+        # del_dt = self.elastance_finite_difference(t)
+        # if filling_phase:
+        #
+        #     xdot_1 = del_dt*x[0]/el + (x[1]-x[0])/(self.R2*(1/el))
+        #     xdot_2 = (x[2]-x[1])/(self.R1*self.C2) - (x[1]-x[0])/(self.R2*self.C2)
+        #     xdot_3 = -(x[2]-x[1])/(self.R1*self.C3)
+        #     xdot_4 = 0
+        #
+        # elif ejection_phase:
+        #
+        #     xdot_1 = del_dt*x[0]/el - el*x[3]
+        #     xdot_2 = (x[2]-x[1])/(self.R1*self.C2)
+        #     xdot_3 = (x[3]/self.C3) - (x[2]-x[1])/(self.R1*self.C3)
+        #     xdot_4 = ((x[0]-x[2])-x[3]*(self.R3+self.R4))/self.L
+        #
+        # elif isovolumic_phase:
+        #
+        #     xdot_1 = del_dt*x[0]/el
+        #     xdot_2 = (x[2]-x[1])/(self.R1*self.C2)
+        #     xdot_3 = -xdot_1
+        #     xdot_4 = 0
 
-            xdot[0] = del_dt*x[0]/el + (x[1]-x[0])/(self.R2*self.C1)
-            xdot[1] = (x[2]-x[1])/(self.R1*self.C2) - (x[1]-x[0])/(self.R2*self.C2)
-            xdot[2] = -(x[2]-x[1])/(self.R1*self.C3)
-            xdot[3] = 0
+        # xdot.append(xdot_1)
+        # xdot.append(xdot_2)
+        # xdot.append(xdot_3)
+        # xdot.append(xdot_4)
 
-        elif ejection_phase:
-
-            xdot[0] = del_dt*x[0]/el - el*x[3]
-            xdot[1] = (x[2]-x[1])/(self.R1*self.C2)
-            xdot[2] = (x[3]/self.C3) - (x[2]-x[1])/(self.R1*self.C3)
-            xdot[3] = ((x[0]-x[2])-x[3]*(self.R3+self.R4))/self.L
-
-        elif isovolumic_phase:
-
-            xdot[0] = del_dt*x[0]/el
-            xdot[1] = (x[2]-x[1])/(self.R1*self.C2)
-            xdot[2] = -xdot[1]
-            xdot[3] = 0
+        return (xdot)
 
 
     def isovolumic_phase_dynamic_matrix(self, t):
@@ -126,7 +133,7 @@ class Circulation:
         el = self.elastance(t)
         del_dt = self.elastance_finite_difference(t)
         return [[del_dt/el - el/self.R2, el/self.R2, 0, 0],
-                [1/(self.R1*self.C2), -(self.R1+self.R2)/(self.R1*self.R2*self.C2), 1/(self.R1*self.C2), 0],
+                [1/(self.R2*self.C2), -(self.R1+self.R2)/(self.R1*self.R2*self.C2), 1/(self.R1*self.C2), 0],
                 [0, 1/(self.R1*self.C3), -1/(self.R1*self.C3), 0],
                 [0, 0, 0, 0]]
 
@@ -166,21 +173,21 @@ class Circulation:
         Put all the blood pressure in the atria as an initial condition.
         """
 
-        lm = np.arange(0, 1.8, .01)
-        vm = np.arange(-1.2, 1.2, .01)
-        lt = np.arange(0, 1.07, .01)
-        plt.subplot(2,1,1)
-        # plt.plot(lm, force_length_muscle(lm), 'r')
-        # plt.plot(lm, force_length_parallel(lm), 'g')
-        # plt.plot(lt, force_length_tendon(lt), 'b')
-        # plt.legend(('CE', 'PE', 'SE'))
-        plt.xlabel('Normalized length')
-        plt.ylabel('Force scale factor')
-        plt.subplot(2, 1, 2)
-        # plt.plot(vm, force_velocity_muscle(vm), 'k')
-        plt.xlabel('Normalized muscle velocity')
-        plt.ylabel('Force scale factor')
-        plt.tight_layout()
+        ic = np.array([0,self.non_slack_blood_volume/self.C2,0,0])
+        sol = solve_ivp(self.get_derivative, [0, total_time], ic)
+        time = sol.t
+        left_ventricular_P = sol.y[0,:]
+        atrial_P = sol.y[1,:]
+        aortic_P = sol.y[2,:]
+        aortic_flow_rate = sol.y[3,:]
+
+        plt.plot(time, left_ventricular_P, 'r')
+        plt.plot(time, atrial_P, 'g')
+        plt.plot(time, aortic_P, 'b')
+        # plt.plot(time, aortic_flow_rate*self.R4, 'k')
+        # plt.legend(('Ventricular Pressure', 'Atrial Pressure', 'Arterial Pressure', 'Aortic Pressure btwn D2 and R4'))
+        plt.xlabel('Time (s)')
+        plt.ylabel('Pressure (mmHg)')
         plt.show()
 
 
@@ -190,7 +197,6 @@ class Circulation:
         :return: time normalized to self.Tmax (duration of ventricular contraction)
         """
         return (t % self.tc) / self.Tmax
-
 
 
     def calc_left_vbv(self):
@@ -209,11 +215,9 @@ class Circulation:
 if __name__ == "__main__":
 
     # Question 1
-    # circ = Circulation(75, 2.0, 0.06)
-
+    circ = Circulation(75, 2.0, 0.06)
 
     # Question 2
-    # circ.simulate(5)
-
+    circ.simulate(5)
 
     # Question 3
