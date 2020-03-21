@@ -187,8 +187,8 @@ def plot_q2():
     aortic_flow_rate = states[3,:]
 
     # Aortic pressure right outside of aortic valve (btwn D2 and R4)
-    # aortic_P = arterial_P + aortic_flow_rate*circ.R4
-    aortic_P = left_ventricular_P - aortic_flow_rate*circ.R3
+    aortic_P = arterial_P + aortic_flow_rate*circ.R4
+    # aortic_P = left_ventricular_P - aortic_flow_rate*circ.R3
 
     plt.figure()
     plt.plot(time, left_ventricular_P)
